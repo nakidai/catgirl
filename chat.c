@@ -124,6 +124,47 @@ static void utilRead(void) {
 	}
 }
 
+static void parseEdit(const char *str) {
+	if (!strcmp(str, "emacs")) {
+		inputMode = InputEmacs;
+		return;
+	} else if (!strcmp(str, "vi")) {
+		inputMode = InputVi;
+		return;
+	} else if (strcmp(str, "auto")) {
+		errx(EX_USAGE, "unrecognized edit mode %s", str);
+	}
+
+	inputMode = InputEmacs;
+	static const struct {
+		const char *name;
+		const char *line;
+	} Files[] = {
+		{ ".editrc", "bind -v\n" },
+		{ ".inputrc", "set editing-mode vi\n" },
+	};
+	size_t cap = 0;
+	char *buf = NULL;
+	char path[PATH_MAX];
+	const char *home = getenv("HOME");
+	if (!home) errx(EX_USAGE, "HOME unset");
+	for (size_t i = 0; i < ARRAY_LEN(Files); ++i) {
+		snprintf(path, sizeof(path), "%s/%s", home, Files[i].name);
+		FILE *file = fopen(path, "r");
+		if (!file) continue;
+		while (0 < getline(&buf, &cap, file)) {
+			if (!strcmp(buf, Files[i].line)) {
+				inputMode = InputVi;
+				fclose(file);
+				free(buf);
+				return;
+			}
+		}
+		fclose(file);
+	}
+	free(buf);
+}
+
 uint32_t hashInit;
 uint32_t hashBound = 75;
 
@@ -242,6 +283,7 @@ int main(int argc, char *argv[]) {
 	struct option options[] = {
 		{ .val = '!', .name = "insecure", no_argument },
 		{ .val = 'C', .name = "copy", required_argument },
+		{ .val = 'E', .name = "edit", required_argument },
 		{ .val = 'H', .name = "hash", required_argument },
 		{ .val = 'I', .name = "highlight", required_argument },
 		{ .val = 'N', .name = "notify", required_argument },
@@ -278,10 +320,12 @@ int main(int argc, char *argv[]) {
 		if (options[i].has_arg == optional_argument) opts[j++] = ':';
 	}
 
+	bool editSet = false;
 	for (int opt; 0 < (opt = getopt_config(argc, argv, opts, options, NULL));) {
 		switch (opt) {
 			break; case '!': insecure = true;
 			break; case 'C': utilPush(&urlCopyUtil, optarg);
+			break; case 'E': editSet = true; parseEdit(optarg);
 			break; case 'H': parseHash(optarg);
 			break; case 'I': filterAdd(Hot, optarg);
 			break; case 'N': utilPush(&uiNotifyUtil, optarg);

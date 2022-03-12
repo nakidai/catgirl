@@ -43,10 +43,7 @@
 #include "chat.h"
 #include "edit.h"
 
-static enum {
-	InputEmacs,
-	InputVi,
-} inputMode;
+enum InputMode inputMode;
 
 #define ENUM_KEY \
 	X(KeyCtrlLeft, "\33[1;5D", NULL) \
