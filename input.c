@@ -413,6 +413,10 @@ static void inputEnter(void) {
 
 	tabAccept();
 	editFn(&edits[id], EditClear);
+	if (inputMode == InputVi) {
+		editVi(&edits[id], L'\33');
+		editVi(&edits[id], L'i');
+	}
 	command(id, cmd);
 }
 
