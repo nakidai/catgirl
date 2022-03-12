@@ -484,6 +484,7 @@ static void keyCtrl(wchar_t ch) {
 			break; case L'K': error = editFn(edit, EditDeleteTail);
 			break; case L'T': error = editFn(edit, EditTranspose);
 			break; case L'U': error = editFn(edit, EditDeleteHead);
+			break; case L'V': windowScroll(ScrollPage, -1);
 			break; case L'W': error = editFn(edit, EditDeletePrevWord);
 			break; case L'Y': error = editFn(edit, EditPaste);
 		}
@@ -497,7 +498,6 @@ static void keyCtrl(wchar_t ch) {
 		break; case L'P': windowShow(windowNum() - 1);
 		break; case L'R': windowSearch(editString(edit, &buf, &cap, NULL), -1);
 		break; case L'S': windowSearch(editString(edit, &buf, &cap, NULL), +1);
-		break; case L'V': windowScroll(ScrollPage, -1);
 		break; case L'X': error = macroExpand(edit); tabAccept();
 		break; default: if (inputMode == InputVi) error = editVi(edit, ch);
 	}
