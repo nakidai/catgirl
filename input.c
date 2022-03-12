@@ -134,7 +134,7 @@ void inputInit(void) {
 
 	keypad(uiInput, true);
 	nodelay(uiInput, true);
-	notimeout(uiInput, inputMode == InputVi);
+	ESCDELAY = (inputMode == InputVi ? 50 : 1000);
 }
 
 static void inputAdd(struct Style reset, struct Style *style, const char *str) {
