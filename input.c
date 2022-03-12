@@ -499,6 +499,7 @@ static void keyCtrl(wchar_t ch) {
 		break; case L'S': windowSearch(editString(edit, &buf, &cap, NULL), +1);
 		break; case L'V': windowScroll(ScrollPage, -1);
 		break; case L'X': error = macroExpand(edit); tabAccept();
+		break; default: if (inputMode == InputVi) error = editVi(edit, ch);
 	}
 	if (error) err(1, "editFn");
 }
@@ -586,9 +587,12 @@ void inputRead(void) {
 		} else if (iswcntrl(ch)) {
 			tabbing = (ch == (L'I' ^ L'@'));
 			keyCtrl(ch);
-		} else {
+		} else if (inputMode == InputEmacs) {
 			int error = editInsert(&edits[windowID()], ch);
 			if (error) err(1, "editInsert");
+		} else if (inputMode == InputVi) {
+			int error = editVi(&edits[windowID()], ch);
+			if (error) err(1, "editVi");
 		}
 		style = false;
 		literal = false;
