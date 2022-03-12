@@ -40,6 +40,7 @@ struct Edit {
 			EditViCommand,
 		} mode;
 		bool lnext;
+		char verb;
 	} vi;
 };
 

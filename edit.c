@@ -220,27 +220,37 @@ enum {
 };
 
 static int editViInsert(struct Edit *e, wchar_t ch) {
-	if (e->vi.lnext) {
-		e->vi.lnext = false;
-		return editInsert(e, ch);
-	}
-	switch (ch) {
-		break; case Erase:  return editFn(e, EditDeletePrev);
-		break; case Kill:   return editFn(e, EditDeleteHead);
-		break; case LNext:  e->vi.lnext = true;
-		break; case WErase: return editFn(e, EditDeletePrevWord);
-		break; case Esc: {
-			if (e->pos) e->pos--;
-			e->vi.mode = EditViCommand;
+	if (!e->vi.lnext) {
+		switch (ch) {
+			break; case Erase:  return editFn(e, EditDeletePrev);
+			break; case Kill:   return editFn(e, EditDeleteHead);
+			break; case LNext:  e->vi.lnext = true; return 0;
+			break; case WErase: return editFn(e, EditDeletePrevWord);
+			break; case Esc: {
+				if (e->pos) e->pos--;
+				e->vi.mode = EditViCommand;
+				return 0;
+			}
 		}
-		break; default: return editInsert(e, ch);
+	}
+	e->vi.lnext = false;
+	if (e->vi.verb == 'R' && e->pos < e->len) {
+		e->buf[e->pos] = ch;
+		e->pos++;
+	} else if (e->vi.verb == 'r' && e->pos < e->len) {
+		e->buf[e->pos] = ch;
+		e->vi.mode = EditViCommand;
+	} else {
+		return editInsert(e, ch);
 	}
 	return 0;
 }
 
 static int editViCommand(struct Edit *e, wchar_t ch) {
 	switch (ch) {
-		break; case L'i': e->vi.mode = EditViInsert;
+		break; case L'R': e->vi.verb = 'R'; e->vi.mode = EditViInsert;
+		break; case L'i': e->vi.verb = 'i'; e->vi.mode = EditViInsert;
+		break; case L'r': e->vi.verb = 'r'; e->vi.mode = EditViInsert;
 	}
 	return 0;
 }
@@ -279,6 +289,13 @@ static bool eq(struct Edit *e, const char *str1) {
 }
 
 #define editFn(...) assert(0 == editFn(__VA_ARGS__))
+#define editVi(...) assert(0 == editVi(__VA_ARGS__))
+
+static void vi(struct Edit *e, const char *str) {
+	for (const char *ch = str; *ch; ++ch) {
+		editVi(e, *ch);
+	}
+}
 
 int main(void) {
 	struct Edit cut = {0};
@@ -376,6 +393,14 @@ int main(void) {
 	assert(eq(&e, "foo \33\0"));
 	editVi(&e, Kill);
 	assert(eq(&e, "\0"));
+
+	fix(&e, "foo");
+	vi(&e, "\33rx");
+	assert(e.vi.mode == EditViCommand);
+	assert(eq(&e, "fo\0x"));
+	vi(&e, "Robar\33");
+	assert(e.vi.mode == EditViCommand);
+	assert(eq(&e, "fooba\0r"));
 }
 
 #endif /* TEST */
