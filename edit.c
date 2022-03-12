@@ -213,16 +213,29 @@ int editInsert(struct Edit *e, wchar_t ch) {
 
 enum {
 	Esc = L'\33',
+	Erase = L'\177',
+	Kill = L'@' ^ L'U',
+	LNext = L'@' ^ 'V',
+	WErase = L'@' ^ L'W',
 };
 
 static int editViInsert(struct Edit *e, wchar_t ch) {
-	switch (ch) {
-		break; case Esc: {
-			e->vi.mode = EditViCommand;
-			return 0;
-		}
-		default: return editInsert(e, ch);
+	if (e->vi.lnext) {
+		e->vi.lnext = false;
+		return editInsert(e, ch);
 	}
+	switch (ch) {
+		break; case Erase:  return editFn(e, EditDeletePrev);
+		break; case Kill:   return editFn(e, EditDeleteHead);
+		break; case LNext:  e->vi.lnext = true;
+		break; case WErase: return editFn(e, EditDeletePrevWord);
+		break; case Esc: {
+			if (e->pos) e->pos--;
+			e->vi.mode = EditViCommand;
+		}
+		break; default: return editInsert(e, ch);
+	}
+	return 0;
 }
 
 static int editViCommand(struct Edit *e, wchar_t ch) {
@@ -238,9 +251,6 @@ int editVi(struct Edit *e, wchar_t ch) {
 		break; case EditViInsert: error = editViInsert(e, ch);
 		break; case EditViCommand: error = editViCommand(e, ch);
 	}
-	if (e->vi.mode == EditViCommand && e->pos == e->len && e->pos) {
-		e->pos--;
-	}
 	return error;
 }
 
@@ -250,6 +260,7 @@ int editVi(struct Edit *e, wchar_t ch) {
 #include <string.h>
 
 static void fix(struct Edit *e, const char *str) {
+	e->vi.mode = EditViInsert;
 	assert(0 == editFn(e, EditClear));
 	for (const char *ch = str; *ch; ++ch) {
 		assert(0 == editInsert(e, (wchar_t)*ch));
@@ -352,6 +363,19 @@ int main(void) {
 	assert(e.vi.mode == EditViInsert);
 	editVi(&e, L'b');
 	assert(eq(&e, "fob\0o"));
+	editVi(&e, Esc);
+	assert(eq(&e, "fo\0bo"));
+
+	fix(&e, "foo bar");
+	editVi(&e, Erase);
+	assert(eq(&e, "foo ba\0"));
+	editVi(&e, WErase);
+	assert(eq(&e, "foo \0"));
+	editVi(&e, LNext);
+	editVi(&e, Esc);
+	assert(eq(&e, "foo \33\0"));
+	editVi(&e, Kill);
+	assert(eq(&e, "\0"));
 }
 
 #endif /* TEST */

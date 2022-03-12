@@ -39,6 +39,7 @@ struct Edit {
 			EditViInsert,
 			EditViCommand,
 		} mode;
+		bool lnext;
 	} vi;
 };
 
