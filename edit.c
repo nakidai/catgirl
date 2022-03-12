@@ -211,6 +211,39 @@ int editInsert(struct Edit *e, wchar_t ch) {
 	return 0;
 }
 
+enum {
+	Esc = L'\33',
+};
+
+static int editViInsert(struct Edit *e, wchar_t ch) {
+	switch (ch) {
+		break; case Esc: {
+			e->vi.mode = EditViCommand;
+			return 0;
+		}
+		default: return editInsert(e, ch);
+	}
+}
+
+static int editViCommand(struct Edit *e, wchar_t ch) {
+	switch (ch) {
+		break; case L'i': e->vi.mode = EditViInsert;
+	}
+	return 0;
+}
+
+int editVi(struct Edit *e, wchar_t ch) {
+	int error;
+	switch (e->vi.mode) {
+		break; case EditViInsert: error = editViInsert(e, ch);
+		break; case EditViCommand: error = editViCommand(e, ch);
+	}
+	if (e->vi.mode == EditViCommand && e->pos == e->len && e->pos) {
+		e->pos--;
+	}
+	return error;
+}
+
 #ifdef TEST
 #undef NDEBUG
 #include <assert.h>
@@ -309,6 +342,16 @@ int main(void) {
 	fix(&e, "  foo  bar  ");
 	editFn(&e, EditCollapse);
 	assert(eq(&e, "foo bar\0"));
+
+	fix(&e, "foo");
+	assert(e.vi.mode == EditViInsert);
+	editVi(&e, Esc);
+	assert(e.vi.mode == EditViCommand);
+	assert(eq(&e, "fo\0o"));
+	editVi(&e, L'i');
+	assert(e.vi.mode == EditViInsert);
+	editVi(&e, L'b');
+	assert(eq(&e, "fob\0o"));
 }
 
 #endif /* TEST */
