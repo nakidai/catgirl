@@ -274,12 +274,17 @@ static int viCommand(struct Edit *e, wchar_t ch) {
 		e->vi.count += ch - L'0';
 		return 0;
 	}
+	e->vi.verb = ch;
 	switch (ch) {
 		break; case Esc: viEscape(e);
+		break; case L'$': if (e->len) e->pos = e->len - 1; viEscape(e);
 		break; case L'0': e->pos = 0; viEscape(e);
-		break; case L'R': e->vi.verb = 'R'; e->vi.mode = Insert;
-		break; case L'i': e->vi.verb = 'i'; e->vi.mode = Insert;
-		break; case L'r': e->vi.verb = 'r'; e->vi.mode = Insert;
+		break; case L'A': e->pos = e->len; e->vi.mode = Insert;
+		break; case L'I': e->pos = 0; e->vi.mode = Insert;
+		break; case L'R': e->vi.mode = Insert;
+		break; case L'a': if (e->len) e->pos++; e->vi.mode = Insert;
+		break; case L'i': e->vi.mode = Insert;
+		break; case L'r': e->vi.mode = Insert;
 	}
 	return 0;
 }
@@ -411,6 +416,17 @@ int main(void) {
 	editVi(&e, Esc);
 	assert(eq(&e, "fo\0bo"));
 
+	fix(&e, "foo");
+	vi(&e, "\33I");
+	assert(e.vi.mode == Insert);
+	assert(eq(&e, "\0foo"));
+	vi(&e, "\33A");
+	assert(e.vi.mode == Insert);
+	assert(eq(&e, "foo\0"));
+	vi(&e, "\33a");
+	assert(e.vi.mode == Insert);
+	assert(eq(&e, "foo\0"));
+
 	fix(&e, "foo bar");
 	editVi(&e, Erase);
 	assert(eq(&e, "foo ba\0"));
@@ -435,6 +451,12 @@ int main(void) {
 	assert(eq(&e, "y\0yo"));
 	vi(&e, "3rz");
 	assert(eq(&e, "yz\0z"));
+
+	fix(&e, "foo bar");
+	vi(&e, "\0330");
+	assert(eq(&e, "\0foo bar"));
+	vi(&e, "$");
+	assert(eq(&e, "foo ba\0r"));
 }
 
 #endif /* TEST */
