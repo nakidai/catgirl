@@ -268,6 +268,21 @@ static int viInsert(struct Edit *e, wchar_t ch) {
 	return 0;
 }
 
+static size_t viMotion(struct Edit *e, wchar_t ch) {
+	unsigned count = (e->vi.count ?: 1);
+	switch (ch) {
+		break; case L'$': return (e->len ? e->len - 1 : 0);
+		break; case L'0': return 0;
+		break; case L'h': case Erase: {
+			return (e->pos > count ? e->pos - count : 0);
+		}
+		break; case L'l': case L' ': {
+			return (e->pos + count < e->len ? e->pos + count : e->len - 1);
+		}
+	}
+	return e->pos;
+}
+
 static int viCommand(struct Edit *e, wchar_t ch) {
 	if ((ch >= L'1' && ch <= L'9') || (e->vi.count && ch == L'0')) {
 		e->vi.count *= 10;
@@ -277,14 +292,16 @@ static int viCommand(struct Edit *e, wchar_t ch) {
 	e->vi.verb = ch;
 	switch (ch) {
 		break; case Esc: viEscape(e);
-		break; case L'$': if (e->len) e->pos = e->len - 1; viEscape(e);
-		break; case L'0': e->pos = 0; viEscape(e);
 		break; case L'A': e->pos = e->len; e->vi.mode = Insert;
 		break; case L'I': e->pos = 0; e->vi.mode = Insert;
 		break; case L'R': e->vi.mode = Insert;
 		break; case L'a': if (e->len) e->pos++; e->vi.mode = Insert;
 		break; case L'i': e->vi.mode = Insert;
 		break; case L'r': e->vi.mode = Insert;
+		break; default: {
+			e->pos = viMotion(e, ch);
+			viEscape(e);
+		}
 	}
 	return 0;
 }
@@ -459,6 +476,14 @@ int main(void) {
 	vi(&e, "\0330");
 	assert(eq(&e, "\0foo bar"));
 	vi(&e, "$");
+	assert(eq(&e, "foo ba\0r"));
+	vi(&e, "h");
+	assert(eq(&e, "foo b\0ar"));
+	vi(&e, "l");
+	assert(eq(&e, "foo ba\0r"));
+	vi(&e, "99h");
+	assert(eq(&e, "\0foo bar"));
+	vi(&e, "99l");
 	assert(eq(&e, "foo ba\0r"));
 }
 
