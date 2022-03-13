@@ -35,13 +35,10 @@ struct Edit {
 	size_t cap;
 	struct Edit *cut;
 	struct {
-		enum EditViMode {
-			EditViInsert,
-			EditViCommand,
-		} mode;
-		unsigned count;
+		bool mode;
 		char verb;
 		bool lnext;
+		unsigned count;
 	} vi;
 };
 
