@@ -253,7 +253,7 @@ static int viInsert(struct Edit *e, wchar_t ch) {
 		if (!isvalid(ch)) return -1;
 		e->buf[e->pos] = ch;
 		e->pos++;
-	} else if (e->vi.verb == 'r' && e->pos < e->len) {
+	} else if (e->vi.verb == 'r') {
 		if (!isvalid(ch)) return -1;
 		size_t pos = e->pos;
 		for (unsigned i = 0; i < (e->vi.count ?: 1); ++i) {
@@ -451,6 +451,9 @@ int main(void) {
 	assert(eq(&e, "y\0yo"));
 	vi(&e, "3rz");
 	assert(eq(&e, "yz\0z"));
+	fix(&e, "");
+	vi(&e, "\33rx");
+	assert(eq(&e, "\0"));
 
 	fix(&e, "foo bar");
 	vi(&e, "\0330");
