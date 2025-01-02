@@ -34,6 +34,8 @@
 
 #include "chat.h"
 
+static int furry = 0;
+
 typedef void Command(uint id, char *params);
 
 static void commandDebug(uint id, char *params) {
@@ -110,6 +112,28 @@ static void splitMessage(char *cmd, uint id, char *params) {
 
 static void commandPrivmsg(uint id, char *params) {
 	splitMessage("PRIVMSG", id, params);
+}
+
+static void commandFur(uint id, char *params) {
+	(void)id;
+	(void)params;
+	furry = !furry;
+}
+
+static void commandFurs(uint id, char *params) {
+	(void)params;
+	uiFormat(
+		id, Warm, NULL,
+		"You're a \3%02d%s", furry ? Pink : LightGray,
+		furry ? "cute fuwwy~~ UwU :3" : "very boring person :<"
+	);
+}
+
+static void commandPrint(uint id, char *params) {
+	uiFormat(
+		id, Warm, NULL,
+		"%s", params
+	);
 }
 
 static void commandNotice(uint id, char *params) {
@@ -578,6 +602,8 @@ static const struct Handler {
 	{ "/devoice", commandDevoice, 0, 0 },
 	{ "/except", commandExcept, 0, 0 },
 	{ "/exec", commandExec, Multiline | Restrict, 0 },
+	{ "/fur", commandFur, 0, 0 },
+	{ "/furs", commandFurs, 0, 0 },
 	{ "/help", commandHelp, 0, 0 }, // Restrict special case.
 	{ "/highlight", commandHighlight, 0, 0 },
 	{ "/ignore", commandIgnore, 0, 0 },
@@ -599,6 +625,7 @@ static const struct Handler {
 	{ "/open", commandOpen, Restrict, 0 },
 	{ "/ops", commandOps, 0, 0 },
 	{ "/part", commandPart, 0, 0 },
+	{ "/print", commandPrint, Multiline, 0 },
 	{ "/query", commandQuery, 0, 0 },
 	{ "/quit", commandQuit, 0, 0 },
 	{ "/quote", commandQuote, Multiline, 0 },
@@ -684,7 +711,25 @@ void command(uint id, char *input) {
 	} else if (!input[0]) {
 		return;
 	} else if (commandIsPrivmsg(id, input)) {
-		commandPrivmsg(id, input);
+		if (!furry)
+		{
+			commandPrivmsg(id, input);
+			return;
+		}
+		char bufx[BufferCap];
+		char askx[BufferCap];
+
+		snprintf(askx, sizeof(askx), "~/dwmscripts/nya.py '%s'", input);
+		FILE *fp = popen(askx, "r");
+		if (!fp)
+		{
+			commandPrivmsg(id, input);
+			return;
+		}
+		fgets(bufx, sizeof(bufx), fp);
+		pclose(fp);
+
+		commandPrivmsg(id, bufx);
 		return;
 	} else if (input[0] == '/' && isdigit(input[1])) {
 		commandWindow(id, &input[1]);
