@@ -61,6 +61,9 @@ check: ${TESTS}
 tags: *.[ch]
 	ctags -w *.[ch]
 
+README: README.7
+	mandoc -Tascii $@.7 | col -b > $@
+
 clean:
 	rm -f ${BINS} ${OBJS} ${OBJS.sandman} ${TESTS} tags
 
