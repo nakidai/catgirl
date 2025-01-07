@@ -4,6 +4,11 @@ NAME
      catgirl - IRC client
 
 DESCRIPTION
+     That tree contains modified version of catgirl(1).	 This fork adds some
+     commands that I sometime use, and it's not intended to be run on other
+     user's systems than mine.	To see original tree you may check
+     CONTRIBUTING section.
+
      catgirl(1) is a terminal IRC client.
 
      Screenshot: imagine, if you will, text on a screen, next to names in a
@@ -118,4 +123,4 @@ SEE ALSO
      June McEnroe, IRC Suite, https://text.causal.agency/010-irc-suite.txt,
      June 19, 2020.
 
-Causal Agency			 May 22, 2024			 Causal Agency
+Causal Agency			January 2, 2025			 Causal Agency
