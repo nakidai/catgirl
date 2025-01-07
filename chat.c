@@ -132,7 +132,7 @@ static void parseEdit(const char *str) {
 		inputMode = InputVi;
 		return;
 	} else if (strcmp(str, "auto")) {
-		errx(EX_USAGE, "unrecognized edit mode %s", str);
+		errx(1, "unrecognized edit mode %s", str);
 	}
 
 	inputMode = InputEmacs;
@@ -147,7 +147,7 @@ static void parseEdit(const char *str) {
 	char *buf = NULL;
 	char path[PATH_MAX];
 	const char *home = getenv("HOME");
-	if (!home) errx(EX_USAGE, "HOME unset");
+	if (!home) errx(1, "HOME unset");
 	for (size_t i = 0; i < ARRAY_LEN(Files); ++i) {
 		snprintf(path, sizeof(path), "%s/%s", home, Files[i].name);
 		FILE *file = fopen(path, "r");
