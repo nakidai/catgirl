@@ -339,6 +339,10 @@ void uiFormat(
 void uiLoad(const char *name);
 int uiSave(void);
 
+extern enum InputMode {
+	InputEmacs,
+	InputVi,
+} inputMode;
 void inputInit(void);
 void inputWait(void);
 void inputUpdate(void);

@@ -203,12 +203,137 @@ int editFn(struct Edit *e, enum EditFn fn) {
 	return ret;
 }
 
-int editInsert(struct Edit *e, wchar_t ch) {
+static bool isvalid(wchar_t ch) {
 	char mb[MB_LEN_MAX];
-	if (wctomb(mb, ch) < 0) return -1;
+	return wctomb(mb, ch) > 0;
+}
+
+int editInsert(struct Edit *e, wchar_t ch) {
+	if (!isvalid(ch)) return -1;
 	if (editReserve(e, e->pos, 1) < 0) return -1;
 	e->buf[e->pos++] = ch;
 	return 0;
+}
+
+enum {
+	Insert = false,
+	Command = true,
+};
+
+enum {
+	Esc = L'\33',
+	Erase = L'\177',
+	Kill = L'@' ^ L'U',
+	LNext = L'@' ^ 'V',
+	WErase = L'@' ^ L'W',
+};
+
+static void viEscape(struct Edit *e) {
+	e->vi.mode = Command;
+	e->vi.count = 0;
+	e->vi.verb = '\0';
+}
+
+static int viInsert(struct Edit *e, wchar_t ch) {
+	if (!e->vi.lnext) {
+		switch (ch) {
+			break; case Erase:  return editFn(e, EditDeletePrev);
+			break; case Kill:   return editFn(e, EditDeleteHead);
+			break; case LNext:  e->vi.lnext = true; return 0;
+			break; case WErase: return editFn(e, EditDeletePrevWord);
+			break; case Esc: {
+				viEscape(e);
+				if (e->pos) e->pos--;
+				return 0;
+			}
+		}
+	}
+	e->vi.lnext = false;
+	if (e->vi.verb == 'R' && e->pos < e->len) {
+		if (!isvalid(ch)) return -1;
+		e->buf[e->pos] = ch;
+		e->pos++;
+	} else if (e->vi.verb == 'r') {
+		if (!isvalid(ch)) return -1;
+		size_t pos = e->pos;
+		for (unsigned i = 0; i < (e->vi.count ?: 1); ++i) {
+			if (e->pos + i == e->len) break;
+			e->buf[(pos = e->pos + i)] = ch;
+		}
+		e->pos = pos;
+		viEscape(e);
+	} else {
+		return editInsert(e, ch);
+	}
+	return 0;
+}
+
+static size_t viMotion(struct Edit *e, wchar_t ch) {
+	unsigned count = (e->vi.count ?: 1);
+	switch (ch) {
+		break; case L'$': return (e->len ? e->len - 1 : 0);
+		break; case L'0': return 0;
+		break; case L'h': case Erase: {
+			return (e->pos > count ? e->pos - count : 0);
+		}
+		break; case L'l': case L' ': {
+			return (e->pos + count < e->len ? e->pos + count : e->len - 1);
+		}
+	}
+	return e->pos;
+}
+
+static int viCommand(struct Edit *e, wchar_t ch) {
+	if ((ch >= L'1' && ch <= L'9') || (e->vi.count && ch == L'0')) {
+		e->vi.count *= 10;
+		e->vi.count += ch - L'0';
+		return 0;
+	}
+	e->vi.verb = ch;
+	switch (ch) {
+		break; case Esc: viEscape(e);
+		break; case L'A': e->pos = e->len; e->vi.mode = Insert;
+		break; case L'I': e->pos = 0; e->vi.mode = Insert;
+		break; case L'R': e->vi.mode = Insert;
+		break; case L'X': {
+                        if (!e->vi.count)
+                                ++e->vi.count;
+			for (size_t i = 0; i < e->vi.count; ++i)
+			{
+				int ret = editFn(e, EditDeletePrev);
+				if (ret)
+					return ret;
+			}
+                        viEscape(e);
+		}
+		break; case L'a': if (e->len) e->pos++; e->vi.mode = Insert;
+		break; case L'i': e->vi.mode = Insert;
+		break; case L'r': e->vi.mode = Insert;
+		break; case L'x': {
+                        if (!e->vi.count)
+                                ++e->vi.count;
+			for (size_t i = 0; i < e->vi.count; ++i)
+			{
+				int ret = editFn(e, EditDeleteNext);
+				if (ret)
+					return ret;
+			}
+                        viEscape(e);
+		}
+		break; default: {
+			e->pos = viMotion(e, ch);
+			viEscape(e);
+		}
+	}
+	return 0;
+}
+
+int editVi(struct Edit *e, wchar_t ch) {
+	if (e->vi.mode == Command) {
+		return viCommand(e, ch);
+	} else {
+		return viInsert(e, ch);
+	}
 }
 
 #ifdef TEST
@@ -217,6 +342,7 @@ int editInsert(struct Edit *e, wchar_t ch) {
 #include <string.h>
 
 static void fix(struct Edit *e, const char *str) {
+	e->vi.mode = Insert;
 	assert(0 == editFn(e, EditClear));
 	for (const char *ch = str; *ch; ++ch) {
 		assert(0 == editInsert(e, (wchar_t)*ch));
@@ -235,6 +361,13 @@ static bool eq(struct Edit *e, const char *str1) {
 }
 
 #define editFn(...) assert(0 == editFn(__VA_ARGS__))
+#define editVi(...) assert(0 == editVi(__VA_ARGS__))
+
+static void vi(struct Edit *e, const char *str) {
+	for (const char *ch = str; *ch; ++ch) {
+		editVi(e, *ch);
+	}
+}
 
 int main(void) {
 	struct Edit cut = {0};
@@ -309,6 +442,71 @@ int main(void) {
 	fix(&e, "  foo  bar  ");
 	editFn(&e, EditCollapse);
 	assert(eq(&e, "foo bar\0"));
+
+	fix(&e, "foo");
+	assert(e.vi.mode == Insert);
+	editVi(&e, Esc);
+	assert(e.vi.mode == Command);
+	assert(eq(&e, "fo\0o"));
+	editVi(&e, L'i');
+	assert(e.vi.mode == Insert);
+	editVi(&e, L'b');
+	assert(eq(&e, "fob\0o"));
+	editVi(&e, Esc);
+	assert(eq(&e, "fo\0bo"));
+
+	fix(&e, "foo");
+	vi(&e, "\33I");
+	assert(e.vi.mode == Insert);
+	assert(eq(&e, "\0foo"));
+	vi(&e, "\33A");
+	assert(e.vi.mode == Insert);
+	assert(eq(&e, "foo\0"));
+	vi(&e, "\33a");
+	assert(e.vi.mode == Insert);
+	assert(eq(&e, "foo\0"));
+
+	fix(&e, "foo bar");
+	editVi(&e, Erase);
+	assert(eq(&e, "foo ba\0"));
+	editVi(&e, WErase);
+	assert(eq(&e, "foo \0"));
+	editVi(&e, LNext);
+	editVi(&e, Esc);
+	assert(eq(&e, "foo \33\0"));
+	editVi(&e, Kill);
+	assert(eq(&e, "\0"));
+
+	fix(&e, "foo");
+	vi(&e, "\0330Rba");
+	assert(eq(&e, "ba\0o"));
+	vi(&e, "r baz");
+	assert(eq(&e, "bar baz\0"));
+
+	fix(&e, "foo");
+	vi(&e, "\0330rx");
+	assert(eq(&e, "\0xoo"));
+	vi(&e, "2ry");
+	assert(eq(&e, "y\0yo"));
+	vi(&e, "3rz");
+	assert(eq(&e, "yz\0z"));
+	fix(&e, "");
+	vi(&e, "\33rx");
+	assert(eq(&e, "\0"));
+
+	fix(&e, "foo bar");
+	vi(&e, "\0330");
+	assert(eq(&e, "\0foo bar"));
+	vi(&e, "$");
+	assert(eq(&e, "foo ba\0r"));
+	vi(&e, "h");
+	assert(eq(&e, "foo b\0ar"));
+	vi(&e, "l");
+	assert(eq(&e, "foo ba\0r"));
+	vi(&e, "99h");
+	assert(eq(&e, "\0foo bar"));
+	vi(&e, "99l");
+	assert(eq(&e, "foo ba\0r"));
 }
 
 #endif /* TEST */

@@ -43,6 +43,8 @@
 #include "chat.h"
 #include "edit.h"
 
+enum InputMode inputMode;
+
 #define ENUM_KEY \
 	X(KeyCtrlLeft, "\33[1;5D", NULL) \
 	X(KeyCtrlRight, "\33[1;5C", NULL) \
@@ -57,14 +59,10 @@
 	X(KeyMeta8, "\0338", "\33*") \
 	X(KeyMeta9, "\0339", "\33(") \
 	X(KeyMetaA, "\33a", NULL) \
-	X(KeyMetaB, "\33b", NULL) \
-	X(KeyMetaD, "\33d", NULL) \
-	X(KeyMetaF, "\33f", NULL) \
 	X(KeyMetaL, "\33l", NULL) \
 	X(KeyMetaM, "\33m", NULL) \
 	X(KeyMetaN, "\33n", NULL) \
 	X(KeyMetaP, "\33p", NULL) \
-	X(KeyMetaQ, "\33q", NULL) \
 	X(KeyMetaS, "\33s", NULL) \
 	X(KeyMetaT, "\33t", NULL) \
 	X(KeyMetaU, "\33u", NULL) \
@@ -82,10 +80,17 @@
 	X(KeyPasteOff, "\33[201~", NULL) \
 	X(KeyPasteManual, "\32p", "\32\20")
 
+#define ENUM_KEY_EMACS \
+	X(KeyMetaB, "\33b", NULL) \
+	X(KeyMetaD, "\33d", NULL) \
+	X(KeyMetaF, "\33f", NULL) \
+	X(KeyMetaQ, "\33q", NULL)
+
 enum {
 	KeyMax = KEY_MAX,
 #define X(id, seq, alt) id,
 	ENUM_KEY
+	ENUM_KEY_EMACS
 #undef X
 };
 
@@ -118,10 +123,18 @@ void inputInit(void) {
 
 #define X(id, seq, alt) define_key(seq, id); if (alt) define_key(alt, id);
 	ENUM_KEY
+	ENUM_KEY_EMACS
 #undef X
+
+	if (inputMode != InputEmacs) {
+#define X(id, seq, alt) define_key(NULL, id);
+		ENUM_KEY_EMACS
+#undef X
+	}
 
 	keypad(uiInput, true);
 	nodelay(uiInput, true);
+	ESCDELAY = (inputMode == InputVi ? 50 : 1000);
 }
 
 static void inputAdd(struct Style reset, struct Style *style, const char *str) {
@@ -397,6 +410,10 @@ static void inputEnter(void) {
 
 	tabAccept();
 	editFn(&edits[id], EditClear);
+	if (inputMode == InputVi) {
+		editVi(&edits[id], L'\33');
+		editVi(&edits[id], L'i');
+	}
 	command(id, cmd);
 }
 
@@ -455,29 +472,34 @@ static void keyCode(int code) {
 static void keyCtrl(wchar_t ch) {
 	int error = 0;
 	struct Edit *edit = &edits[windowID()];
+	if (inputMode == InputEmacs) {
+		switch (ch ^ L'@') {
+			break; case L'?': error = editFn(edit, EditDeletePrev);
+			break; case L'A': error = editFn(edit, EditHead);
+			break; case L'B': error = editFn(edit, EditPrev);
+			break; case L'D': error = editFn(edit, EditDeleteNext);
+			break; case L'E': error = editFn(edit, EditTail);
+			break; case L'F': error = editFn(edit, EditNext);
+			break; case L'H': error = editFn(edit, EditDeletePrev);
+			break; case L'K': error = editFn(edit, EditDeleteTail);
+			break; case L'T': error = editFn(edit, EditTranspose);
+			break; case L'U': error = editFn(edit, EditDeleteHead);
+			break; case L'V': windowScroll(ScrollPage, -1);
+			break; case L'W': error = editFn(edit, EditDeletePrevWord);
+			break; case L'Y': error = editFn(edit, EditPaste);
+		}
+	}
 	switch (ch ^ L'@') {
-		break; case L'?': error = editFn(edit, EditDeletePrev);
-		break; case L'A': error = editFn(edit, EditHead);
-		break; case L'B': error = editFn(edit, EditPrev);
 		break; case L'C': raise(SIGINT);
-		break; case L'D': error = editFn(edit, EditDeleteNext);
-		break; case L'E': error = editFn(edit, EditTail);
-		break; case L'F': error = editFn(edit, EditNext);
-		break; case L'H': error = editFn(edit, EditDeletePrev);
 		break; case L'I': error = tabComplete(edit, windowID());
 		break; case L'J': inputEnter();
-		break; case L'K': error = editFn(edit, EditDeleteTail);
 		break; case L'L': clearok(curscr, true); wrefresh(curscr);
 		break; case L'N': windowShow(windowNum() + 1);
 		break; case L'P': windowShow(windowNum() - 1);
 		break; case L'R': windowSearch(editString(edit, &buf, &cap, NULL), -1);
 		break; case L'S': windowSearch(editString(edit, &buf, &cap, NULL), +1);
-		break; case L'T': error = editFn(edit, EditTranspose);
-		break; case L'U': error = editFn(edit, EditDeleteHead);
-		break; case L'V': windowScroll(ScrollPage, -1);
-		break; case L'W': error = editFn(edit, EditDeletePrevWord);
 		break; case L'X': error = macroExpand(edit); tabAccept();
-		break; case L'Y': error = editFn(edit, EditPaste);
+		break; default: if (inputMode == InputVi) error = editVi(edit, ch);
 	}
 	if (error) err(1, "editFn");
 }
@@ -565,9 +587,12 @@ void inputRead(void) {
 		} else if (iswcntrl(ch)) {
 			tabbing = (ch == (L'I' ^ L'@'));
 			keyCtrl(ch);
-		} else {
+		} else if (inputMode == InputEmacs) {
 			int error = editInsert(&edits[windowID()], ch);
 			if (error) err(1, "editInsert");
+		} else if (inputMode == InputVi) {
+			int error = editVi(&edits[windowID()], ch);
+			if (error) err(1, "editVi");
 		}
 		style = false;
 		literal = false;

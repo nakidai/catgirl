@@ -34,6 +34,12 @@ struct Edit {
 	size_t len;
 	size_t cap;
 	struct Edit *cut;
+	struct {
+		bool mode;
+		char verb;
+		bool lnext;
+		unsigned count;
+	} vi;
 };
 
 enum EditFn {
@@ -57,6 +63,9 @@ enum EditFn {
 
 // Perform an editing function.
 int editFn(struct Edit *e, enum EditFn fn);
+
+// Perform a vi editing function.
+int editVi(struct Edit *e, wchar_t ch);
 
 // Insert a character at the cursor.
 int editInsert(struct Edit *e, wchar_t ch);

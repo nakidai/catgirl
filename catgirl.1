@@ -1,4 +1,4 @@
-.Dd May 22, 2024
+.Dd January  7, 2025
 .Dt CATGIRL 1
 .Os
 .
@@ -10,6 +10,7 @@
 .Nm
 .Op Fl Relqv
 .Op Fl C Ar copy
+.Op Fl E Ar edit
 .Op Fl H Ar hash
 .Op Fl I Ar highlight
 .Op Fl N Ar notify
@@ -117,6 +118,24 @@ The default is the first available of
 .Xr xclip 1
 or
 .Xr xsel 1 .
+.
+.It Fl E Ar mode | Cm edit No = Ar mode
+Set the line editing mode to
+.Cm emacs
+or
+.Cm vi.
+The default is
+.Cm auto ,
+which sets the mode to
+.Cm vi
+if
+.Ql bind -v
+appears in
+.Pa ~/.editrc
+or
+.Ql set editing-mode vi
+appears in
+.Pa ~/.inputrc .
 .
 .It Fl H Ar seed,bound | Cm hash Ar seed,bound
 Set the seed for choosing
@@ -982,6 +1001,9 @@ usually
 .Pa /usr/local/share:/usr/share .
 .It Pa ~/.local/share/catgirl
 The most likely location of save files.
+.
+.It Pa ~/.editrc , Pa ~/.inputrc
+Used to guess the default line editing mode.
 .El
 .
 .Sh EXIT STATUS
