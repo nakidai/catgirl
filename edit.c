@@ -295,9 +295,31 @@ static int viCommand(struct Edit *e, wchar_t ch) {
 		break; case L'A': e->pos = e->len; e->vi.mode = Insert;
 		break; case L'I': e->pos = 0; e->vi.mode = Insert;
 		break; case L'R': e->vi.mode = Insert;
+		break; case L'X': {
+                        if (!e->vi.count)
+                                ++e->vi.count;
+			for (size_t i = 0; i < e->vi.count; ++i)
+			{
+				int ret = editFn(e, EditDeletePrev);
+				if (ret)
+					return ret;
+			}
+                        viEscape(e);
+		}
 		break; case L'a': if (e->len) e->pos++; e->vi.mode = Insert;
 		break; case L'i': e->vi.mode = Insert;
 		break; case L'r': e->vi.mode = Insert;
+		break; case L'x': {
+                        if (!e->vi.count)
+                                ++e->vi.count;
+			for (size_t i = 0; i < e->vi.count; ++i)
+			{
+				int ret = editFn(e, EditDeleteNext);
+				if (ret)
+					return ret;
+			}
+                        viEscape(e);
+		}
 		break; default: {
 			e->pos = viMotion(e, ch);
 			viEscape(e);
