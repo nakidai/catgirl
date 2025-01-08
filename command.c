@@ -31,8 +31,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <wchar.h>
 
 #include "chat.h"
+#include "tr2cyr.h"
 
 static int furry = 0;
 
@@ -233,6 +235,37 @@ static void commandTopic(uint id, char *params) {
 		ircFormat("TOPIC %s\r\n", idNames[id]);
 		replies[ReplyTopic]++;
 	}
+}
+
+static wint_t commandTransReader(size_t i, void *arg) {
+	char *buf = arg;
+	size_t bufi = 0;
+
+	for (; i; --i)
+	    if ((bufi += mblen(buf + bufi, BufferCap - bufi)) >= BufferCap)
+		return WEOF;
+
+	wchar_t res;
+	int ret = mbtowc(&res, buf + bufi, BufferCap - bufi);
+	if (ret <= 0)
+		return WEOF;
+
+	return res;
+}
+
+static int commandTransWriter(wchar_t ch, void *arg) {
+	char append[5] = {0};
+	wctomb(append, ch);
+	strncat(arg, append, BufferCap - strlen(arg) - strlen(append) - 1);
+	return 0;
+}
+
+static void commandTrans(uint id, char *params) {
+	char buf[BufferCap] = {0};
+
+	Translator_convert(&commandTransReader, params, &commandTransWriter, buf);
+
+	commandPrivmsg(id, buf);
 }
 
 static void commandNames(uint id, char *params) {
@@ -632,6 +665,7 @@ static const struct Handler {
 	{ "/say", commandPrivmsg, Multiline, 0 },
 	{ "/setname", commandSetname, 0, CapSetname },
 	{ "/topic", commandTopic, 0, 0 },
+	{ "/trans", commandTrans, Multiline, 0 },
 	{ "/unban", commandUnban, 0, 0 },
 	{ "/unexcept", commandUnexcept, 0, 0 },
 	{ "/unhighlight", commandUnhighlight, 0, 0 },
@@ -711,8 +745,7 @@ void command(uint id, char *input) {
 	} else if (!input[0]) {
 		return;
 	} else if (commandIsPrivmsg(id, input)) {
-		if (!furry)
-		{
+		if (!furry) {
 			commandPrivmsg(id, input);
 			return;
 		}
@@ -721,8 +754,7 @@ void command(uint id, char *input) {
 
 		snprintf(askx, sizeof(askx), "~/dwmscripts/nya.py '%s'", input);
 		FILE *fp = popen(askx, "r");
-		if (!fp)
-		{
+		if (!fp) {
 			commandPrivmsg(id, input);
 			return;
 		}

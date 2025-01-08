@@ -27,6 +27,7 @@ OBJS += handle.o
 OBJS += input.o
 OBJS += irc.o
 OBJS += log.o
+OBJS += tr2cyr.o
 OBJS += ui.o
 OBJS += url.o
 OBJS += window.o
