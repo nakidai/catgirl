@@ -7,13 +7,14 @@ CFLAGS += -std=c11 -Wall -Wextra -Wpedantic -Wmissing-prototypes
 CFLAGS += ${CEXTS:%=-Wno-%}
 LDADD.libtls = -ltls
 LDADD.ncursesw = -lncursesw
+LDADD.tr2cyr = -ltr2cyr
 
 BINS = catgirl
 MANS = ${BINS:=.1}
 
 -include config.mk
 
-LDLIBS = ${LDADD.libtls} ${LDADD.ncursesw}
+LDLIBS = ${LDADD.libtls} ${LDADD.ncursesw} ${LDADD.tr2cyr}
 LDLIBS.sandman = -framework Cocoa
 
 OBJS += buffer.o
@@ -27,7 +28,6 @@ OBJS += handle.o
 OBJS += input.o
 OBJS += irc.o
 OBJS += log.o
-OBJS += tr2cyr.o
 OBJS += ui.o
 OBJS += url.o
 OBJS += window.o

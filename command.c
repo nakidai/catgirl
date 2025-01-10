@@ -33,8 +33,9 @@
 #include <unistd.h>
 #include <wchar.h>
 
+#include <tr2cyr.h>
+
 #include "chat.h"
-#include "tr2cyr.h"
 
 static int furry = 0;
 
@@ -263,7 +264,7 @@ static int commandTransWriter(wchar_t ch, void *arg) {
 static void commandTrans(uint id, char *params) {
 	char buf[BufferCap] = {0};
 
-	Translator_convert(&commandTransReader, params, &commandTransWriter, buf);
+	tr2cyr(&commandTransReader, params, &commandTransWriter, buf);
 
 	commandPrivmsg(id, buf);
 }
