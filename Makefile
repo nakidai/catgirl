@@ -7,7 +7,7 @@ CFLAGS += -std=c11 -Wall -Wextra -Wpedantic -Wmissing-prototypes
 CFLAGS += ${CEXTS:%=-Wno-%}
 LDADD.libtls = -ltls
 LDADD.ncursesw = -lncursesw
-LDADD.tr2cyr = -ltr2cyr
+LDADD.tr2cyr = -l:libtr2cyr.a
 
 BINS = catgirl
 MANS = ${BINS:=.1}
